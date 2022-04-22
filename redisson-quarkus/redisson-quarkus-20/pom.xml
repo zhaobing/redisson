@@ -44,7 +44,7 @@
                <configuration>
                    <source>11</source>
                    <target>11</target>
-                   <release>11</release>
+<!--                   <release>11</release>-->
                    <optimize>true</optimize>
                    <showDeprecation>true</showDeprecation>
                </configuration>

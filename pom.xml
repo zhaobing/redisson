@@ -315,7 +315,7 @@
                 <configuration>
                     <source>${source.version}</source>
                     <target>${source.version}</target>
-                    <release>${release.version}</release>
+<!--                    <release>${release.version}</release>-->
                     <optimize>true</optimize>
                     <showDeprecation>true</showDeprecation>
                 </configuration>
