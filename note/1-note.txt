@@ -1,0 +1,8 @@
+以测试用例开始
+
+
++. BaseTest为测试类的基类
+beforeClass方法中 RedisRunner.startDefaultRedisServerInstance();
+启动redis服务端环境
+
+1. 初始化redis-server运行环境
