@@ -1,12 +1,12 @@
 /**
  * Copyright (c) 2013-2021 Nikita Koksharov
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,23 +16,29 @@
 package org.redisson.connection;
 
 import org.redisson.config.*;
+import org.redisson.loghelper.C;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.UUID;
 
 /**
- * 
  * @author Nikita Koksharov
- *
  */
 public class SingleConnectionManager extends MasterSlaveConnectionManager {
 
+    private static final Logger log = LoggerFactory.getLogger(SingleConnectionManager.class);
+
     public SingleConnectionManager(SingleServerConfig cfg, Config config, UUID id) {
         super(create(cfg), config, id);
+        log.info("tag[{}]\tmsg[{}]", C.ConnectionManager, "测试消息1");
+        log.info("tag[{}]\tmsg[{}]", C.ConnectionManager, "测试消息2");
+        log.info("tag[{}]\tmsg[{}]", C.ConnectionManager, "测试消息3");
     }
 
     private static MasterSlaveServersConfig create(SingleServerConfig cfg) {
         MasterSlaveServersConfig newconfig = new MasterSlaveServersConfig();
-        
+
         newconfig.setPingConnectionInterval(cfg.getPingConnectionInterval());
         newconfig.setSslEnableEndpointIdentification(cfg.isSslEnableEndpointIdentification());
         newconfig.setSslProvider(cfg.getSslProvider());
@@ -41,7 +47,7 @@ public class SingleConnectionManager extends MasterSlaveConnectionManager {
         newconfig.setSslKeystore(cfg.getSslKeystore());
         newconfig.setSslKeystorePassword(cfg.getSslKeystorePassword());
         newconfig.setSslProtocols(cfg.getSslProtocols());
-        
+
         newconfig.setRetryAttempts(cfg.getRetryAttempts());
         newconfig.setRetryInterval(cfg.getRetryInterval());
         newconfig.setTimeout(cfg.getTimeout());
@@ -64,7 +70,7 @@ public class SingleConnectionManager extends MasterSlaveConnectionManager {
         newconfig.setKeepAlive(cfg.isKeepAlive());
         newconfig.setTcpNoDelay(cfg.isTcpNoDelay());
         newconfig.setNameMapper(cfg.getNameMapper());
-        
+
         return newconfig;
     }
 

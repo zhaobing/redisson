@@ -12,6 +12,8 @@ import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
 import org.redisson.api.listener.SetObjectListener;
 import org.redisson.config.Config;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -23,7 +25,31 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * 通用对象桶测试
+ */
 public class RedissonBucketTest extends BaseTest {
+    private final Logger log = LoggerFactory.getLogger(getClass());
+
+    /**
+     * 最简单的场景 get/set
+     */
+    @Test
+    public void testSetGet() {
+        log.info("start testSetGet");
+        RBucket<String> bucket = redisson.getBucket("test");//获取一个名称为test的通用对象桶
+        Assertions.assertNull(bucket.get());//因为没有设置过这个对象桶看，需要判定为null
+        String value = "somevalue";
+        bucket.set(value);//对桶进行设置
+        Assertions.assertEquals(value, bucket.get());//设置成功
+
+        bucket.set(null);//对象桶置为null,也即删除这个对象桶
+        bucket.set(null, 1, TimeUnit.DAYS);
+
+        assertThat(bucket.isExists()).isFalse();//判定对象桶不存在
+
+        log.info("end testSetGet");
+    }
 
     @Test
     public void testGetAndClearExpire() {
@@ -84,19 +110,15 @@ public class RedissonBucketTest extends BaseTest {
 
     @Test
     public void testDeletedListener() throws FailedToStartRedisException, IOException, InterruptedException {
-        RedisProcess instance = new RedisRunner()
-                .nosave()
-                .randomPort()
-                .randomDir()
-                .notifyKeyspaceEvents( 
-                                    KEYSPACE_EVENTS_OPTIONS.E,
-                                    KEYSPACE_EVENTS_OPTIONS.g)
-                .run();
-        
+        RedisProcess instance = new RedisRunner().nosave().randomPort().randomDir()
+                                                 .notifyKeyspaceEvents(KEYSPACE_EVENTS_OPTIONS.E,
+                                                         KEYSPACE_EVENTS_OPTIONS.g)
+                                                 .run();
+
         Config config = new Config();
         config.useSingleServer().setAddress(instance.getRedisServerAddressAndPort());
         RedissonClient redisson = Redisson.create(config);
-        
+
         RBucket<Integer> al = redisson.getBucket("test");
         al.set(1);
         CountDownLatch latch = new CountDownLatch(1);
@@ -107,23 +129,19 @@ public class RedissonBucketTest extends BaseTest {
             }
         });
         al.delete();
-        
+
         assertThat(latch.await(1, TimeUnit.SECONDS)).isTrue();
-        
+
         redisson.shutdown();
         instance.stop();
     }
-    
+
     @Test
     public void testSetListener() throws FailedToStartRedisException, IOException, InterruptedException {
-        RedisProcess instance = new RedisRunner()
-                .nosave()
-                .randomPort()
-                .randomDir()
-                .notifyKeyspaceEvents(
-                                    KEYSPACE_EVENTS_OPTIONS.E,
-                                    KEYSPACE_EVENTS_OPTIONS.$)
-                .run();
+        RedisProcess instance = new RedisRunner().nosave().randomPort().randomDir()
+                                                 .notifyKeyspaceEvents(KEYSPACE_EVENTS_OPTIONS.E,
+                                                         KEYSPACE_EVENTS_OPTIONS.$)
+                                                 .run();
 
         Config config = new Config();
         config.useSingleServer().setAddress(instance.getRedisServerAddressAndPort());
@@ -142,24 +160,21 @@ public class RedissonBucketTest extends BaseTest {
         assertThat(latch.await(1, TimeUnit.SECONDS)).isTrue();
 
         redisson.shutdown();
-        instance.stop();    }
+        instance.stop();
+    }
 
-    
+
     @Test
     public void testExpiredListener() throws FailedToStartRedisException, IOException, InterruptedException {
-        RedisProcess instance = new RedisRunner()
-                .nosave()
-                .randomPort()
-                .randomDir()
-                .notifyKeyspaceEvents( 
-                                    KEYSPACE_EVENTS_OPTIONS.E,
-                                    KEYSPACE_EVENTS_OPTIONS.x)
-                .run();
-        
+        RedisProcess instance = new RedisRunner().nosave().randomPort().randomDir()
+                                                 .notifyKeyspaceEvents(KEYSPACE_EVENTS_OPTIONS.E,
+                                                         KEYSPACE_EVENTS_OPTIONS.x)
+                                                 .run();
+
         Config config = new Config();
         config.useSingleServer().setAddress(instance.getRedisServerAddressAndPort());
         RedissonClient redisson = Redisson.create(config);
-        
+
         RBucket<Integer> al = redisson.getBucket("test");
         al.set(1, 3, TimeUnit.SECONDS);
         CountDownLatch latch = new CountDownLatch(1);
@@ -169,13 +184,13 @@ public class RedissonBucketTest extends BaseTest {
                 latch.countDown();
             }
         });
-        
+
         assertThat(latch.await(4, TimeUnit.SECONDS)).isTrue();
-        
+
         redisson.shutdown();
         instance.stop();
     }
-    
+
     @Test
     public void testSizeInMemory() {
         Assumptions.assumeTrue(RedisRunner.getDefaultRedisServerInstance().getRedisVersion().compareTo("4.0.0") > 0);
@@ -183,42 +198,42 @@ public class RedissonBucketTest extends BaseTest {
         al.set(1234);
         assertThat(al.sizeInMemory()).isEqualTo(54);
     }
-    
+
     @Test
     public void testDumpAndRestore() {
         RBucket<Integer> al = redisson.getBucket("test");
         al.set(1234);
-        
+
         byte[] state = al.dump();
         al.delete();
-        
+
         al.restore(state);
         assertThat(al.get()).isEqualTo(1234);
-        
+
         RBucket<Integer> bucket = redisson.getBucket("test2");
         bucket.set(300);
         bucket.restoreAndReplace(state);
         assertThat(bucket.get()).isEqualTo(1234);
     }
-    
+
     @Test
     public void testDumpAndRestoreTTL() {
         RBucket<Integer> al = redisson.getBucket("test");
         al.set(1234);
-        
+
         byte[] state = al.dump();
         al.delete();
-        
+
         al.restore(state, 10, TimeUnit.SECONDS);
         assertThat(al.get()).isEqualTo(1234);
         assertThat(al.remainTimeToLive()).isBetween(9500L, 10000L);
-        
+
         RBucket<Integer> bucket = redisson.getBucket("test2");
         bucket.set(300);
         bucket.restoreAndReplace(state, 10, TimeUnit.SECONDS);
         assertThat(bucket.get()).isEqualTo(1234);
     }
-    
+
     @Test
     public void testGetAndDelete() {
         RBucket<Integer> al = redisson.getBucket("test");
@@ -227,7 +242,7 @@ public class RedissonBucketTest extends BaseTest {
         assertThat(al.isExists()).isFalse();
         assertThat(al.getAndDelete()).isNull();
     }
-    
+
     @Test
     public void testSize() {
         RBucket<String> bucket = redisson.getBucket("testCompareAndSet");
@@ -236,7 +251,7 @@ public class RedissonBucketTest extends BaseTest {
         // json adds quotes
         assertThat(bucket.size()).isEqualTo(7);
     }
-    
+
     @Test
     public void testCompareAndSet() {
         RBucket<List<String>> r1 = redisson.getBucket("testCompareAndSet");
@@ -265,7 +280,7 @@ public class RedissonBucketTest extends BaseTest {
 
         assertThat(r1.get()).isNull();
     }
-    
+
     @Test
     public void testGetAndSet() {
         RBucket<List<String>> r1 = redisson.getBucket("testGetAndSet");
@@ -330,11 +345,11 @@ public class RedissonBucketTest extends BaseTest {
         RBucket<String> bucket = redisson.getBucket("test");
         bucket.set("someValue");
         assertThat(bucket.touch()).isTrue();
-        
+
         RBucket<String> bucket2 = redisson.getBucket("test2");
         assertThat(bucket2.touch()).isFalse();
     }
-    
+
     @Test
     public void testRenamenx() {
         RBucket<String> bucket = redisson.getBucket("test");
@@ -349,52 +364,44 @@ public class RedissonBucketTest extends BaseTest {
         Assertions.assertEquals("value1", newBucket.get());
         Assertions.assertFalse(newBucket.renamenx("test2"));
     }
-    
+
     @Test
     public void testMigrate() throws FailedToStartRedisException, IOException, InterruptedException {
-        RedisProcess runner = new RedisRunner()
-                .appendonly(true)
-                .randomDir()
-                .randomPort()
-                .run();
-        
+        RedisProcess runner = new RedisRunner().appendonly(true).randomDir().randomPort().run();
+
         RBucket<String> bucket = redisson.getBucket("test");
         bucket.set("someValue");
-        
+
         bucket.migrate(runner.getRedisServerBindAddress(), runner.getRedisServerPort(), 0, 5000);
-        
+
         Config config = new Config();
         config.useSingleServer().setAddress(runner.getRedisServerAddressAndPort());
         RedissonClient r = Redisson.create(config);
-        
+
         RBucket<String> bucket2 = r.getBucket("test");
         assertThat(bucket2.get()).isEqualTo("someValue");
         assertThat(bucket.isExists()).isFalse();
-        
+
         runner.stop();
     }
 
     @Test
     public void testCopy() throws FailedToStartRedisException, IOException, InterruptedException {
-        RedisProcess runner = new RedisRunner()
-                .appendonly(true)
-                .randomDir()
-                .randomPort()
-                .run();
-        
+        RedisProcess runner = new RedisRunner().appendonly(true).randomDir().randomPort().run();
+
         RBucket<String> bucket = redisson.getBucket("test");
         bucket.set("someValue");
-        
+
         bucket.copy(runner.getRedisServerBindAddress(), runner.getRedisServerPort(), 0, 5000);
-        
+
         Config config = new Config();
         config.useSingleServer().setAddress(runner.getRedisServerAddressAndPort());
         RedissonClient r = Redisson.create(config);
-        
+
         RBucket<String> bucket2 = r.getBucket("test");
         assertThat(bucket2.get()).isEqualTo("someValue");
         assertThat(bucket.get()).isEqualTo("someValue");
-        
+
         runner.stop();
     }
 
@@ -410,19 +417,6 @@ public class RedissonBucketTest extends BaseTest {
         Assertions.assertEquals("value1", newBucket.get());
     }
 
-    @Test
-    public void testSetGet() {
-        RBucket<String> bucket = redisson.getBucket("test");
-        Assertions.assertNull(bucket.get());
-        String value = "somevalue";
-        bucket.set(value);
-        Assertions.assertEquals(value, bucket.get());
-        
-        bucket.set(null);
-        bucket.set(null, 1, TimeUnit.DAYS);
-        
-        assertThat(bucket.isExists()).isFalse();
-    }
 
     @Test
     public void testSetDelete() {
